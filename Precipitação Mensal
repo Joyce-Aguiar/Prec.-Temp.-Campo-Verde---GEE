@@ -1,0 +1,171 @@
+# Distribuição Sazonal Mensal de Campo Verde - MT 
+
+# Carregar pacotes necessários
+library(ggplot2)
+library(readr)
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(ggpmisc)  # Para equações no gráfico
+library(reshape2)
+library(extrafont)
+library(forcats)  # para fct_recode
+library(trend)
+library(viridis)  # Paleta de cores científica
+library(ggnewscale)
+
+# === Ler e preparar dados ===
+Dados_r <- read.csv("D:/MESTRADO/DISCIPLINAS/Climatologia/Artigo/dados.csv", sep = ";", dec = ".", header = TRUE)
+Dados_r
+
+# Recode months from numeric to English names
+Dados_r <- Dados_r %>%
+  mutate(
+    Month = fct_recode(as.factor(Month),
+                     "January" = "1", "February" = "2", "March" = "3",
+                     "April" = "4", "May" = "5", "June" = "6",
+                     "July" = "7", "August" = "8", "September" = "9",
+                     "October" = "10", "November" = "11", "December" = "12"
+    ),
+    Month = factor(Month, levels = c(
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ))
+  )
+Dados_r
+
+# === Calcular o p-valor e o valor de Z do teste Mann-Kendall por mês ===
+MK_results <- Dados_r %>%
+  group_by(Month) %>%
+  summarise(
+    p_value = mk.test(Rain)$p.value,
+    Z_value = mk.test(Rain)$estimates[3],  # Extrai o valor Z
+    .groups = "drop"
+  ) %>%
+  mutate(
+    p_label = paste0("p = ", formatC(p_value, format = "f", digits = 3),
+                     "\nZ = ", formatC(Z_value, format = "f", digits = 3)),
+    Z_color = ifelse(Z_value < 0, "Negativa", "Positiva")  # categorias nomeadas
+  )
+
+# === Gráfico completo ===
+ggplot() +
+  # --- Camada 1: pontos e linhas de precipitação ---
+  geom_point(data = Dados_r, aes(x = Year, y = Rain, color = Rain),
+             size = 1.8, alpha = 0.8) +
+  geom_line(data = Dados_r, aes(x = Year, y = Rain, color = Rain, group = Month),
+            linewidth = 0.6, alpha = 0.8) +
+  geom_smooth(data = Dados_r, aes(x = Year, y = Rain),
+              method = "lm", se = FALSE, color = "red", linewidth = 0.6) +
+  
+  # Escala contínua viridis para chuva: amarelo = menor chuva, azul = maior chuva
+  scale_color_viridis_c(
+    option = "D", # "C" é perceptualmente sequencial (amarelo→verde→azul)
+    direction = -1, # Inverte para amarelo = baixo, azul = alto
+    name = "Precipitation (mm)"
+  ) +
+
+  # Facet por mês
+  facet_wrap(~ Month, ncol = 4, scales = "fixed") +
+  
+  # --- Reinicia a escala de cor para o Z ---
+  new_scale_color() +
+  
+  # Adicionar o p-valor do Mann-Kendall em cada faceta
+  # Texto do p-valor (preto, canto superior esquerdo)
+  geom_text(
+    data = MK_results,
+    aes(x = -Inf, y = Inf, label = paste0("p = ", formatC(p_value, format = "f", digits = 3))),
+    hjust = -0.05, vjust = 2.0,  # ajusta posição vertical
+    color = "black",
+    size = 3.5,
+    family = "Arial",
+    fontface = "bold"
+  ) +
+  
+  # Texto do Z (colorido, abaixo do p)
+  geom_text(
+    data = MK_results,
+    aes(x = -Inf, y = Inf, 
+        label = paste0("Z = ", formatC(Z_value, format = "f", digits = 3)), 
+        color = ifelse(Z_value < 0, "Negativa", "Positiva")),
+    hjust = -0.05, vjust = 3.4,  # um pouco abaixo do p
+    size = 3.5,
+    family = "Arial",
+    fontface = "bold"
+  ) +
+  
+  # Mantém cores de tendência (Z) fixas
+  scale_color_manual(
+    values = c("Negativa" = "red", "Positiva" = "blue"),
+    guide = "none"
+  ) +
+  
+  # Rótulos
+  labs(
+    x = "Year",
+    y = "Monthly Precipitation (mm)"
+  ) +
+  
+  # Escalas
+  scale_y_continuous(limits = c(0, 500)) +
+  
+  # Tema profissional
+  theme_test() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5,
+                               color = "black", family = "Arial", size = 12),
+    text = element_text(family = "Arial", color = "black", size = 14),
+    plot.title = element_text(size = 12, face = "bold", color = "black"),
+    axis.title.x = element_text(size = 12, color = "black"),
+    axis.title.y = element_text(size = 12, color = "black"),
+    axis.text = element_text(size = 12, color = "black"),
+    strip.text = element_text(size = 12, face = "bold", color = "black", family = "Arial"),
+    legend.text = element_text(size = 12, color = "black"),
+    legend.title = element_text(size = 12, face = "bold", color = "black"),
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()
+  )
+
+###############################################################
+# === 1. Definir diretório de saída ===
+# === 1. Definir o diretório manualmente ===
+# Substitua o caminho abaixo pelo local exato onde você quer salvar os arquivos
+setwd("D:/MESTRADO/DISCIPLINAS/Climatologia/Artigo")  
+
+# === 2. Criar a pasta (opcional, se quiser manter organizado) ===
+dir.create("fig_mensal", showWarnings = FALSE)
+setwd("D:/MESTRADO/DISCIPLINAS/Climatologia/Artigo/fig_mensal")
+
+# === 3. Salvar o gráfico ===
+ggsave(
+  filename = "grafico_mensal_hd.png",
+  dpi = 300,           # alta definição
+  bg = "white")   # fundo branco
+  
+#########################################################
+
+# Definir períodos conforme clima Aw típico da região de Campo Verde
+chuvoso <- c("October", "November", "December", "January", "February", "March", "April")
+seco    <- c("May", "June", "July", "August", "September")
+
+
+# Média do período chuvoso
+media_chuvoso <- Dados_r %>%
+  filter(Month %in% chuvoso) %>%
+  summarise(media_mm = mean(Rain, na.rm = TRUE))
+media_chuvoso
+
+# Média do período seco
+media_seco <- Dados_r %>%
+  filter(Month %in% seco) %>%
+  summarise(media_mm = mean(Rain, na.rm = TRUE))
+media_seco
+
+# Médias mensais 
+medias_mensais <- Dados_r %>%
+  group_by(Month) %>%
+  summarise(media_mm = mean(Rain, na.rm = TRUE))
+medias_mensais
