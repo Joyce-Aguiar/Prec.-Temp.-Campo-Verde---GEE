@@ -1,0 +1,77 @@
+# CLASSIFICAÇÃO SPI POR FREQUENCIA
+
+#Classificação SPI
+classificacao_spi <- function(spi) {
+  if (spi >= 2) {
+    return("Extremely wet")
+  } else if (spi >= 1.6) {
+    return("Severely Wet")
+  } else if (spi >= 1.3) {
+    return("Very Wet")
+  } else if (spi >= 0.8) {
+    return("Moderately Wet")
+  } else if (spi >= -0.79) {
+    return("Near Normal")
+  } else if (spi >= -1.29) {
+    return("Moderately Dry")
+  } else if (spi >= -1.49) {
+    return("Very Dry") 
+  } else if (spi >= -1.99) {
+    return("Severely Dry")
+  } else {
+    return("Extremely Dry")
+  }
+}
+classificacao_spi
+
+library(dplyr)
+
+df_spi_all <- df_spi_all %>%
+  mutate(
+    Year = lubridate::year(Date),
+    Classe = sapply(SPI, classificacao_spi)
+  )
+
+#Ordenas os níveis para classificação coerente 
+ordem_classes <- c(
+  "Extremely Dry", "Severely Dry", "Very Dry", "Moderately Dry", 
+  "Near Normal", 
+  "Moderately Wet", "Very Wet", "Severely Wet", "Extremely wet"
+)
+
+#Frequência por ano, classe e escala
+freq_spi_all <- df_spi_all %>%
+  group_by(Year, Classe, Scale) %>%
+  summarise(Frequencia = n(), .groups = "drop") %>%
+  mutate(Classe = factor(Classe, levels = ordem_classes))
+
+library(ggplot2)
+library(viridis)
+
+cores_personalizadas <- c("red", "orange", "yellow", "green", "blue")
+
+ggplot(freq_spi_all, aes(x = factor(Year), y = Classe, fill = Frequencia)) +
+  geom_tile(color = "white") + 
+  scale_fill_gradientn(colors = rev(cores_personalizadas), name = "Frequência") +
+  facet_wrap(~ Scale, ncol = 1) +
+  labs(x = "Ano", y = "Classe SPI") +
+  theme_test() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, color = "black", family = "Arial", size = 12),
+    text = element_text(family = "Arial", color = "black", size = 14),
+    plot.title = element_text(size = 12, face = "bold", color = "black"),
+    axis.title.x = element_text(size = 12, color = "black"),
+    axis.title.y = element_text(size = 12, color = "black"),
+    axis.text = element_text(size = 12, color = "black"),
+    strip.text = element_text(size = 12, face = "bold", color = "black", family = "Arial"),
+    legend.text = element_text(size = 12, color = "black"),
+    legend.title = element_text(size = 12, face = "bold", color = "black"),
+    legend.position = "top",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()
+  ) +
+  guides(
+    fill = guide_colorbar(title.position = "top", title.hjust = 0.5),
+    color = guide_legend(title.position = "top"), 
+    shape = "none")
