@@ -1,0 +1,72 @@
+## PRECIPITÇÃO ANUAL DE CAMPO VERDE - MT
+
+#Pacotes
+library(dplyr)
+library(ggplot2)
+library(ggplot2)
+library(dplyr)
+library(readxl)
+
+# Carregue a planilha da aba específica
+dadospre <- read.csv("D:/MESTRADO/DISCIPLINAS/Climatologia/Artigo/dados.csv", sep = ";", dec = ".", header = TRUE)
+dadospre
+head(dadospre)
+str(dadospre)
+summary(dadospre$Rain)
+
+
+# Calcular precipitação anual por ano
+dadospre <- dadospre %>%
+  group_by(Year) %>%
+  summarise(Rain = sum(Rain, na.rm = TRUE))
+dadospre
+summary(dadospre$Rain)
+
+# Calcular média geral (baseline)
+media_geral <- mean(dadospre$Rain, na.rm = TRUE)
+media_geral
+
+# Calcular desvio padrão
+desvio_padrao <- sd(dadospre$Rain, na.rm = TRUE)
+desvio_padrao
+
+# Criar coluna de condição (acima ou abaixo da média)
+dadospre <- dadospre %>%
+  mutate(Condicao = ifelse(Rain >= media_geral, "Acima da Média", "Abaixo da Média"))
+dadospre
+
+# Criar gráfico
+ggplot(dadospre, aes(x = as.factor(Year), y = Rain, fill = Condicao)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("Acima da Média" = "black", "Abaixo da Média" = "white")) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_continuous(
+    limits = c(0, 2100),
+    breaks = seq(200, 2100, by = 200),
+    expand = c(0, 0)
+  )+
+  labs(
+    x = "Ano",
+    y = "Precipitação Anual (mm)",
+    fill = "Condição"
+  ) +
+  theme_test() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, color = "black", family = "Arial", size = 12),
+    axis.text.y = element_text(color = "black", family = "Times New Roman", size = 9),
+    axis.title = element_text(color = "black", family = "Times New Roman", size = 9),
+    plot.title = element_text(color = "black", family = "Times New Roman", size = 10, face = "bold"),
+    legend.text = element_text(color = "black", family = "Times New Roman", size = 9),
+    legend.title = element_text(color = "black", family = "Times New Roman", size = 9),
+    legend.position = "top",
+    panel.grid.major = element_blank(),
+    legend.title.align = 0.5,
+    legend.box = "horizontal"
+  ) +
+  geom_hline(yintercept = media_geral, linetype = "dashed", color = "red", size = 1) +
+  # Adiciona média e desvio padrão como texto no canto superior direito
+  geom_text(
+    aes(x = Inf, y = 2100,
+        label = paste0("Média: ", round(media_geral, 2), " mm\nDesvio Padrão: ", round(desvio_padrao, 2), " mm")),
+    hjust = 1.1, vjust = 2.5, color = "red", inherit.aes = FALSE
+  )
